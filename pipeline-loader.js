@@ -123,7 +123,7 @@ class PipelineLoader {
             return null;
         }
 
-        const targetDepth = 2;
+        const targetDepth = pipeline.depth || 2;
 
         const curvePoints = points.map(point => {
             let x, y, z;
@@ -156,13 +156,20 @@ class PipelineLoader {
         const material = new THREE.MeshPhongMaterial({
             color: color,
             transparent: true,
-            opacity: 0.85,
-            shininess: 50,
+            opacity: 0.92,
+            shininess: 30,
+            specular: new THREE.Color(0x222222),
+            emissive: new THREE.Color(0x000000),
+            emissiveIntensity: 0.0,
             depthTest: true,
-            depthWrite: true
+            depthWrite: true,
+            polygonOffset: true,
+            polygonOffsetFactor: -1,
+            polygonOffsetUnits: -1
         });
 
         const mesh = new THREE.Mesh(geometry, material);
+        mesh.renderOrder = 1;
         
         mesh.userData.pipelineInfo = {
             id: pipeline.id,
@@ -170,7 +177,7 @@ class PipelineLoader {
             typeKey: pipeline.type,
             diameter: pipeline.diameter || '未知',
             material: pipeline.material || '未知',
-            depth: pipeline.depth || 0,
+            depth: targetDepth,
             buildYear: pipeline.buildYear || '未知',
             owner: pipeline.owner || '未知'
         };

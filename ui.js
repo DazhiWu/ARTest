@@ -6,6 +6,7 @@ class UI {
         this.pipelineLoader = pipelineLoader;
         
         this.activePanel = null;
+        this.previousActivePanel = null;
         this.calibrationOffset = { x: 0, y: 0, z: 0 };
         this.isMeasuring = false;
         this.measurementPoints = [];
@@ -134,8 +135,7 @@ class UI {
         
         if (calibrationBtn) {
             calibrationBtn.addEventListener('click', () => {
-                this.hideAllPanels();
-                document.getElementById('calibration-panel').classList.remove('hidden');
+                this.openSubPanel('calibration-panel');
             });
         }
         
@@ -147,8 +147,7 @@ class UI {
         
         if (measureBtn) {
             measureBtn.addEventListener('click', () => {
-                this.hideAllPanels();
-                document.getElementById('measurement-panel').classList.remove('hidden');
+                this.openSubPanel('measurement-panel');
                 this.startMeasurement();
             });
         }
@@ -200,6 +199,19 @@ class UI {
         if (confirmBtn) {
             confirmBtn.addEventListener('click', () => {
                 document.getElementById('calibration-panel').classList.add('hidden');
+                if (this.previousActivePanel) {
+                    const previousPanel = document.getElementById(`${this.previousActivePanel}-panel`);
+                    const previousTab = document.querySelector(`.panel-tab[data-tab="${this.previousActivePanel}"]`);
+                    if (previousPanel) {
+                        previousPanel.classList.remove('hidden');
+                        previousPanel.classList.add('active');
+                    }
+                    if (previousTab) {
+                        previousTab.classList.add('active');
+                    }
+                    this.activePanel = this.previousActivePanel;
+                    this.previousActivePanel = null;
+                }
                 Utils.showToast('校准已保存');
             });
         }
@@ -274,6 +286,19 @@ class UI {
                         const tab = document.querySelector(`.panel-tab[data-tab="${panelName}"]`);
                         if (tab) tab.classList.remove('active');
                         this.activePanel = null;
+                        this.previousActivePanel = null;
+                    } else if (this.previousActivePanel) {
+                        const previousPanel = document.getElementById(`${this.previousActivePanel}-panel`);
+                        const previousTab = document.querySelector(`.panel-tab[data-tab="${this.previousActivePanel}"]`);
+                        if (previousPanel) {
+                            previousPanel.classList.remove('hidden');
+                            previousPanel.classList.add('active');
+                        }
+                        if (previousTab) {
+                            previousTab.classList.add('active');
+                        }
+                        this.activePanel = this.previousActivePanel;
+                        this.previousActivePanel = null;
                     }
                 }
             });
@@ -289,6 +314,16 @@ class UI {
             tab.classList.remove('active');
         });
         this.activePanel = null;
+        this.previousActivePanel = null;
+    }
+
+    openSubPanel(panelId) {
+        this.previousActivePanel = this.activePanel;
+        document.querySelectorAll('.control-panel').forEach(panel => {
+            panel.classList.add('hidden');
+            panel.classList.remove('active');
+        });
+        document.getElementById(panelId).classList.remove('hidden');
     }
 
     toggleFullscreen() {
@@ -475,7 +510,7 @@ class UI {
     }
 
     openManualLocationPanel() {
-        this.hideAllPanels();
+        this.openSubPanel('manual-location-panel');
         
         const latInput = document.getElementById('manual-latitude');
         const lngInput = document.getElementById('manual-longitude');

@@ -6,11 +6,39 @@ const Utils = {
         const dLat = this.toRadians(lat2 - lat1);
         const dLon = this.toRadians(lon2 - lon1);
         
-        const x = dLon * Math.cos(this.toRadians(lat1)) * this.EARTH_RADIUS;
-        const z = dLat * this.EARTH_RADIUS;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(this.toRadians(lat1)) * Math.cos(this.toRadians(lat2)) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const angularDistance = c;
+        
+        const bearing = Math.atan2(
+            Math.sin(dLon) * Math.cos(this.toRadians(lat2)),
+            Math.cos(this.toRadians(lat1)) * Math.sin(this.toRadians(lat2)) -
+            Math.sin(this.toRadians(lat1)) * Math.cos(this.toRadians(lat2)) * Math.cos(dLon)
+        );
+        
+        const distance = this.EARTH_RADIUS * angularDistance;
+        const x = Math.sin(bearing) * distance;
+        const z = Math.cos(bearing) * distance;
         const y = -alt;
         
         return { x, y, z };
+    },
+
+    calculateCameraFOV: function() {
+        const isMobile = this.isMobileDevice();
+        
+        if (isMobile) {
+            const aspect = window.innerWidth / window.innerHeight;
+            if (aspect > 1) {
+                return 55;
+            } else {
+                return 65;
+            }
+        } else {
+            return 60;
+        }
     },
 
     toRadians: function(degrees) {

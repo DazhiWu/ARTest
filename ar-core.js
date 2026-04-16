@@ -71,11 +71,13 @@ class ARCore {
     setupScene() {
         this.scene = new THREE.Scene();
         this.scene.background = null;
+        this.scene.autoUpdate = true;
     }
 
     setupCamera() {
         const aspect = window.innerWidth / window.innerHeight;
-        this.camera = new THREE.PerspectiveCamera(60, aspect, 0.1, 1000);
+        const fov = Utils.calculateCameraFOV();
+        this.camera = new THREE.PerspectiveCamera(fov, aspect, 0.1, 2000);
         this.camera.position.copy(this.currentPosition);
         this.camera.rotation.order = 'YXZ';
     }
@@ -89,7 +91,9 @@ class ARCore {
             antialias: true,
             alpha: true,
             depth: true,
-            logarithmicDepthBuffer: true
+            logarithmicDepthBuffer: true,
+            premultipliedAlpha: true,
+            preserveDrawingBuffer: false
         });
         
         this.renderer.setSize(window.innerWidth, window.innerHeight);
@@ -99,35 +103,26 @@ class ARCore {
         this.renderer.autoClear = true;
         this.renderer.autoClearDepth = true;
         this.renderer.autoClearStencil = true;
+        
+        this.renderer.outputEncoding = THREE.sRGBEncoding;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.0;
     }
 
     setupLights() {
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
         this.scene.add(ambientLight);
         
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(10, 20, 10);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+        directionalLight.position.set(0, 50, 0);
+        directionalLight.castShadow = false;
         this.scene.add(directionalLight);
+        
+        const hemisphereLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.4);
+        this.scene.add(hemisphereLight);
     }
 
     setupDebugGrid() {
-        const gridHelper = new THREE.GridHelper(100, 50, 0x444444, 0x222222);
-        gridHelper.position.y = -2;
-        gridHelper.material.opacity = 0.3;
-        gridHelper.material.transparent = true;
-        this.scene.add(gridHelper);
-        
-        const groundGeometry = new THREE.PlaneGeometry(100, 100);
-        const groundMaterial = new THREE.MeshBasicMaterial({
-            color: 0x006600,
-            transparent: true,
-            opacity: 0.1,
-            side: THREE.DoubleSide
-        });
-        const groundPlane = new THREE.Mesh(groundGeometry, groundMaterial);
-        groundPlane.rotation.x = -Math.PI / 2;
-        groundPlane.position.y = -2;
-        this.scene.add(groundPlane);
     }
 
     setupEventListeners() {
@@ -138,6 +133,7 @@ class ARCore {
 
     onResize() {
         this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.fov = Utils.calculateCameraFOV();
         this.camera.updateProjectionMatrix();
         this.renderer.setSize(window.innerWidth, window.innerHeight);
     }
