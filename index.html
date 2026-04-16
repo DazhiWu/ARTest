@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>WebAR 地下管网可视化系统</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/loaders/GLTFLoader.min.js"></script>
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <div id="loading-screen">
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <h2>WebAR 地下管网可视化系统</h2>
+                <p id="loading-status">正在初始化...</p>
+            </div>
+        </div>
+
+        <div id="permission-screen" class="hidden">
+            <div class="permission-content">
+                <h2>需要权限</h2>
+                <p>为了使用AR功能，我们需要以下权限：</p>
+                <ul>
+                    <li>📷 摄像头访问权限</li>
+                    <li>📍 GPS定位权限</li>
+                    <li>🧭 陀螺仪/指南针权限</li>
+                </ul>
+                <button id="request-permission-btn">开始权限申请</button>
+            </div>
+        </div>
+
+        <div id="ar-container">
+            <video id="camera-feed" autoplay playsinline muted></video>
+            <canvas id="ar-canvas"></canvas>
+            
+            <div id="ui-overlay">
+                <div id="top-bar">
+                    <div class="status-info">
+                        <span id="gps-status" class="status-badge">GPS: 等待中</span>
+                        <span id="compass-status" class="status-badge">罗盘: 等待中</span>
+                    </div>
+                    <div class="performance-info">
+                        <span id="fps-display">FPS: --</span>
+                    </div>
+                </div>
+
+                <div id="location-display" class="location-panel">
+                    <div class="location-title">当前位置</div>
+                    <div id="latitude-display" class="coordinate">-</div>
+                    <div id="longitude-display" class="coordinate">-</div>
+                    <div id="additional-info" class="additional-info">-</div>
+                </div>
+
+                <div id="bottom-panel">
+                    <div class="panel-tab" data-tab="layers">
+                        <span>图层</span>
+                    </div>
+                    <div class="panel-tab" data-tab="depth">
+                        <span>深度</span>
+                    </div>
+                    <div class="panel-tab" data-tab="tools">
+                        <span>工具</span>
+                    </div>
+                </div>
+
+                <div id="layers-panel" class="control-panel">
+                    <div class="panel-header">
+                        <h3>图层控制</h3>
+                        <button class="close-panel">&times;</button>
+                    </div>
+                    <div class="panel-content">
+                        <label class="layer-toggle">
+                            <input type="checkbox" id="layer-water" checked>
+                            <span class="layer-indicator water"></span>
+                            <span>给水管线</span>
+                        </label>
+                        <label class="layer-toggle">
+                            <input type="checkbox" id="layer-drainage" checked>
+                            <span class="layer-indicator drainage"></span>
+                            <span>排水管线</span>
+                        </label>
+                        <label class="layer-toggle">
+                            <input type="checkbox" id="layer-power" checked>
+                            <span class="layer-indicator power"></span>
+                            <span>电力管线</span>
+                        </label>
+                        <label class="layer-toggle">
+                            <input type="checkbox" id="layer-gas" checked>
+                            <span class="layer-indicator gas"></span>
+                            <span>燃气管线</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="depth-panel" class="control-panel">
+                    <div class="panel-header">
+                        <h3>深度控制</h3>
+                        <button class="close-panel">&times;</button>
+                    </div>
+                    <div class="panel-content">
+                        <div class="slider-container">
+                            <label>最小埋深: <span id="min-depth-value">0</span> 米</label>
+                            <input type="range" id="min-depth-slider" min="0" max="10" step="0.5" value="0">
+                        </div>
+                        <div class="slider-container">
+                            <label>最大埋深: <span id="max-depth-value">10</span> 米</label>
+                            <input type="range" id="max-depth-slider" min="0" max="10" step="0.5" value="10">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tools-panel" class="control-panel">
+                    <div class="panel-header">
+                        <h3>工具</h3>
+                        <button class="close-panel">&times;</button>
+                    </div>
+                    <div class="panel-content">
+                        <div class="slider-container">
+                            <label>虚拟升降: <span id="height-value">0</span> 米</label>
+                            <input type="range" id="height-slider" min="-20" max="20" step="0.5" value="0">
+                        </div>
+                        <div class="slider-container">
+                            <label>模型缩放: <span id="scale-value">1.0</span>x</label>
+                            <input type="range" id="scale-slider" min="0.1" max="5" step="0.1" value="1">
+                        </div>
+                        <div class="view-presets">
+                            <label>快速视角:</label>
+                            <div class="preset-buttons">
+                                <button class="preset-btn" data-preset="ground">地面视角</button>
+                                <button class="preset-btn" data-preset="top">俯视视角</button>
+                                <button class="preset-btn" data-preset="side">侧视视角</button>
+                            </div>
+                        </div>
+                        <button id="calibration-btn" class="tool-btn">位置校准</button>
+                        <button id="manual-location-btn" class="tool-btn">手动定位</button>
+                        <button id="measure-btn" class="tool-btn">距离测量</button>
+                        <button id="fullscreen-btn" class="tool-btn">全屏模式</button>
+                        <button id="reset-view-btn" class="tool-btn">重置视角</button>
+                        <button id="load-real-data-btn" class="tool-btn primary-btn">加载真实数据</button>
+                    </div>
+                </div>
+
+                <div id="info-panel" class="hidden">
+                    <div class="info-header">
+                        <h3>管线详情</h3>
+                        <button class="close-panel">&times;</button>
+                    </div>
+                    <div class="info-content">
+                        <div class="info-item">
+                            <span class="label">管线类型:</span>
+                            <span id="info-type" class="value">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">管径:</span>
+                            <span id="info-diameter" class="value">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">材质:</span>
+                            <span id="info-material" class="value">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">埋深:</span>
+                            <span id="info-depth" class="value">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">建设年代:</span>
+                            <span id="info-year" class="value">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">权属单位:</span>
+                            <span id="info-owner" class="value">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="calibration-panel" class="hidden">
+                    <div class="calibration-header">
+                        <h3>位置校准</h3>
+                        <button class="close-panel">&times;</button>
+                    </div>
+                    <div class="calibration-content">
+                        <p>使用下方按钮微调模型位置</p>
+                        <div class="calibration-controls">
+                            <div class="axis-control">
+                                <label>X轴 (东西)</label>
+                                <div class="btn-group">
+                                    <button class="cal-btn" data-axis="x" data-dir="-1">-</button>
+                                    <button class="cal-btn" data-axis="x" data-dir="1">+</button>
+                                </div>
+                            </div>
+                            <div class="axis-control">
+                                <label>Y轴 (上下)</label>
+                                <div class="btn-group">
+                                    <button class="cal-btn" data-axis="y" data-dir="-1">-</button>
+                                    <button class="cal-btn" data-axis="y" data-dir="1">+</button>
+                                </div>
+                            </div>
+                            <div class="axis-control">
+                                <label>Z轴 (南北)</label>
+                                <div class="btn-group">
+                                    <button class="cal-btn" data-axis="z" data-dir="-1">-</button>
+                                    <button class="cal-btn" data-axis="z" data-dir="1">+</button>
+                                </div>
+                            </div>
+                        </div>
+                        <button id="confirm-calibration" class="primary-btn">确认校准</button>
+                    </div>
+                </div>
+
+                <div id="measurement-panel" class="hidden">
+                    <div class="measurement-header">
+                        <h3>距离测量</h3>
+                        <button class="close-panel">&times;</button>
+                    </div>
+                    <div class="measurement-content">
+                        <p>点击屏幕选择两个点来测量距离</p>
+                        <div class="measurement-result">
+                            <span>距离: </span>
+                            <span id="measurement-value">--</span>
+                            <span> 米</span>
+                        </div>
+                        <button id="clear-measurement" class="tool-btn">清除测量</button>
+                    </div>
+                </div>
+
+                <div id="manual-location-panel" class="hidden">
+                    <div class="manual-location-header">
+                        <h3>手动定位调整</h3>
+                        <button class="close-panel">&times;</button>
+                    </div>
+                    <div class="manual-location-content">
+                        <p>调整当前位置坐标和朝向角度</p>
+                        
+                        <div class="input-group">
+                            <label>纬度 (Latitude)</label>
+                            <input type="number" id="manual-latitude" step="0.000001" placeholder="输入纬度">
+                        </div>
+                        
+                        <div class="input-group">
+                            <label>经度 (Longitude)</label>
+                            <input type="number" id="manual-longitude" step="0.000001" placeholder="输入经度">
+                        </div>
+                        
+                        <div class="slider-container">
+                            <label>朝向角度: <span id="rotation-value">0</span>°</label>
+                            <input type="range" id="rotation-slider" min="0" max="360" step="1" value="0">
+                        </div>
+                        
+                        <div class="manual-location-buttons">
+                            <button id="apply-location-btn" class="tool-btn primary-btn">应用调整</button>
+                            <button id="cancel-location-btn" class="tool-btn">取消</button>
+                            <button id="reset-location-btn" class="tool-btn">重置为自动定位</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="toast" class="hidden"></div>
+        </div>
+    </div>
+
+    <script type="module" src="main.js"></script>
+</body>
+</html>

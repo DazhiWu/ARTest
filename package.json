@@ -1,0 +1,17 @@
+{
+  "name": "webar-pipeline-visualization",
+  "version": "1.0.0",
+  "description": "WebAR地下管网可视化系统",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx http-server . -p 8080 -o",
+    "dev": "npx http-server . -p 8080 -c-1",
+    "build": "powershell -Command \"if (!(Test-Path dist)) { New-Item -ItemType Directory -Path dist }; Copy-Item index.html dist; Copy-Item style.css dist; Copy-Item main.js dist; Copy-Item ar-core.js dist; Copy-Item pipeline-loader.js dist; Copy-Item ui.js dist; Copy-Item utils.js dist; Copy-Item pipeline-data.json dist; Copy-Item public dist -Recurse\""
+  },
+  "keywords": ["webar", "threejs", "arjs", "pipeline", "visualization"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}
