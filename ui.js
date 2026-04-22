@@ -1,4 +1,5 @@
 import { Utils } from './utils.js';
+import { PipelineWorkflow } from './pipeline-workflow.js';
 
 class UI {
     constructor(arCore, pipelineLoader) {
@@ -28,6 +29,11 @@ class UI {
             lng: 0,
             rotation: 0
         };
+        
+        this.planeVisibility = true;
+        
+        // 流程控制器
+        this.workflowController = null;
     }
 
     init() {
@@ -41,6 +47,49 @@ class UI {
         this.setupManualLocationPanel();
         this.setupCloseButtons();
         this.setupAdditionalControls();
+        this.setupWebXRControls();
+        
+        // 初始化流程控制器
+        this.initWorkflowController();
+    }
+
+    /**
+     * 初始化流程控制器
+     */
+    initWorkflowController() {
+        this.workflowController = new PipelineWorkflow(this.arCore, this.pipelineLoader);
+        this.workflowController.init();
+        
+        // 添加工具按钮到工具面板
+        this.addWorkflowButtonToTools();
+    }
+
+    /**
+     * 向工具面板添加流程按钮
+     */
+    addWorkflowButtonToTools() {
+        const toolsPanel = document.querySelector('#tools-panel .panel-content');
+        if (toolsPanel) {
+            // 在现有按钮之前插入流程按钮
+            const firstButton = toolsPanel.querySelector('.tool-btn, .preset-btn, .slider-container, .view-presets, hr');
+            if (firstButton) {
+                const workflowButtonHtml = `
+                    <button id="open-workflow-btn" class="tool-btn primary-btn">
+                        🧭 智能管线定位流程
+                    </button>
+                `;
+                firstButton.insertAdjacentHTML('beforebegin', workflowButtonHtml);
+                
+                // 绑定事件
+                const workflowBtn = document.getElementById('open-workflow-btn');
+                if (workflowBtn) {
+                    workflowBtn.addEventListener('click', () => {
+                        this.workflowController.showPanel();
+                        this.hideAllPanels();
+                    });
+                }
+            }
+        }
     }
 
     setupPanelTabs() {
@@ -278,7 +327,7 @@ class UI {
         
         closeButtons.forEach(btn => {
             btn.addEventListener('click', () => {
-                const panel = btn.closest('.control-panel, #info-panel, #calibration-panel, #measurement-panel, #manual-location-panel');
+                const panel = btn.closest('.control-panel, #info-panel, #calibration-panel, #measurement-panel, #manual-location-panel, #diagnostics-panel');
                 if (panel) {
                     panel.classList.add('hidden');
                     if (panel.classList.contains('control-panel')) {
@@ -306,7 +355,7 @@ class UI {
     }
 
     hideAllPanels() {
-        document.querySelectorAll('.control-panel, #info-panel, #calibration-panel, #measurement-panel, #manual-location-panel').forEach(panel => {
+        document.querySelectorAll('.control-panel, #info-panel, #calibration-panel, #measurement-panel, #manual-location-panel, #diagnostics-panel').forEach(panel => {
             panel.classList.add('hidden');
             panel.classList.remove('active');
         });
@@ -602,6 +651,262 @@ class UI {
             localStorage.removeItem('manualLocation');
         } catch (e) {
             console.warn('无法清除手动定位偏好:', e);
+        }
+    }
+    
+    setupWebXRControls() {
+        const startWebXRBtn = document.getElementById('start-webxr-btn');
+        const startGroundDetectionBtn = document.getElementById('start-ground-detection-btn');
+        const startFallbackBtn = document.getElementById('start-fallback-btn');
+        const placeAnchorBtn = document.getElementById('place-anchor-btn');
+        const clearAnchorBtn = document.getElementById('clear-anchor-btn');
+        const togglePlanesBtn = document.getElementById('toggle-planes-btn');
+        const diagnosticsBtn = document.getElementById('diagnostics-btn');
+        
+        if (startGroundDetectionBtn) {
+            startGroundDetectionBtn.addEventListener('click', async () => {
+                await this.startGroundDetection();
+            });
+        }
+        
+        if (startWebXRBtn) {
+            startWebXRBtn.addEventListener('click', async () => {
+                await this.startWebXR();
+            });
+        }
+        
+        if (startFallbackBtn) {
+            startFallbackBtn.addEventListener('click', async () => {
+                await this.startFallbackMode();
+            });
+        }
+        
+        if (placeAnchorBtn) {
+            placeAnchorBtn.addEventListener('click', () => {
+                this.placeAnchor();
+            });
+        }
+        
+        if (clearAnchorBtn) {
+            clearAnchorBtn.addEventListener('click', () => {
+                this.clearAnchor();
+            });
+        }
+        
+        if (togglePlanesBtn) {
+            togglePlanesBtn.addEventListener('click', () => {
+                this.togglePlaneVisibility();
+            });
+        }
+        
+        if (diagnosticsBtn) {
+            diagnosticsBtn.addEventListener('click', () => {
+                this.showDiagnostics();
+            });
+        }
+        
+        this.arCore.onAnchorStatus = (status) => {
+            this.updateAnchorControls(status);
+        };
+        
+        this.checkWebXRAvailability();
+    }
+    
+    /**
+     * 启动完整的地面检测系统
+     */
+    async startGroundDetection() {
+        Utils.showToast('正在启动地面检测系统...');
+        this.hideAllPanels();
+        
+        try {
+            const success = await this.arCore.startGroundDetection('auto');
+            if (success) {
+                Utils.showToast('地面检测系统已启动，请移动设备扫描地面');
+            } else {
+                Utils.showToast('地面检测启动失败，将使用手动模式');
+                // 回退到手动模式
+                await this.arCore.startGroundDetection('manual');
+            }
+        } catch (error) {
+            console.error('启动地面检测失败:', error);
+            Utils.showToast('启动失败，请尝试手动校准模式');
+        }
+    }
+    
+    async checkWebXRAvailability() {
+        const xrSupport = await Utils.isWebXRSupported();
+        const startBtn = document.getElementById('start-webxr-btn');
+        const fallbackBtn = document.getElementById('start-fallback-btn');
+        const placeBtn = document.getElementById('place-anchor-btn');
+        const clearBtn = document.getElementById('clear-anchor-btn');
+        
+        if (startBtn) {
+            if (xrSupport.supported) {
+                startBtn.disabled = false;
+                startBtn.textContent = '启动 WebXR AR';
+            } else {
+                startBtn.disabled = true;
+                startBtn.textContent = '设备不支持WebXR';
+                startBtn.title = xrSupport.reason || 'WebXR不可用';
+            }
+        }
+        
+        // 备用模式按钮始终可用
+        if (fallbackBtn) {
+            fallbackBtn.disabled = false;
+        }
+        
+        // 初始化放置锚点和清除锚点按钮为禁用状态
+        if (placeBtn) placeBtn.disabled = true;
+        if (clearBtn) clearBtn.disabled = true;
+        
+        // 如果有诊断信息，存储起来供用户查看
+        this.lastDiagnostics = xrSupport;
+    }
+    
+    async startFallbackMode() {
+        Utils.showToast('启动地面校准模式...');
+        
+        // 如果WebXR模式正在运行，先停止它
+        if (this.arCore.isXRActive) {
+            await this.arCore.stopWebXR();
+        }
+        
+        const success = await this.arCore.startFallbackMode();
+        
+        if (success) {
+            this.hideAllPanels();
+        }
+    }
+    
+    showDiagnostics() {
+        this.hideAllPanels();
+        const diagnosticsPanel = document.getElementById('diagnostics-panel');
+        if (diagnosticsPanel) {
+            diagnosticsPanel.classList.remove('hidden');
+            
+            // 填充诊断信息
+            const diagnosticsContent = document.getElementById('diagnostics-content');
+            if (diagnosticsContent) {
+                let html = '';
+                
+                // 设备信息
+                const deviceInfo = Utils.getDeviceCapabilities();
+                html += '<div class="diagnostics-section"><h4>设备信息</h4><ul>';
+                html += `<li>平台: ${deviceInfo.platform}</li>`;
+                html += `<li>浏览器: ${deviceInfo.vendor}</li>`;
+                html += `<li>语言: ${deviceInfo.language}</li>`;
+                html += `<li>移动端: ${deviceInfo.isMobile ? '是' : '否'}</li>`;
+                html += `<li>WebGL: ${deviceInfo.webGLSupport ? '支持' : '不支持'}</li>`;
+                html += `<li>WebGL2: ${deviceInfo.webGL2Support ? '支持' : '不支持'}</li>`;
+                html += `<li>安全上下文: ${deviceInfo.isSecureContext ? '是' : '否'}</li>`;
+                html += '</ul></div>';
+                
+                // WebXR诊断
+                if (this.lastDiagnostics) {
+                    html += '<div class="diagnostics-section"><h4>WebXR诊断</h4><ul>';
+                    if (this.lastDiagnostics.diagnostics) {
+                        this.lastDiagnostics.diagnostics.forEach(diag => {
+                            html += `<li>${diag}</li>`;
+                        });
+                    }
+                    html += '</ul></div>';
+                    
+                    html += '<div class="diagnostics-section"><h4>支持情况</h4>';
+                    if (this.lastDiagnostics.supported) {
+                        html += '<p class="success">✅ WebXR AR功能可用</p>';
+                    } else {
+                        html += '<p class="error">❌ WebXR AR不可用，请使用备用模式</p>';
+                        html += `<p>原因: ${this.lastDiagnostics.reason || '未知'}</p>`;
+                    }
+                    html += '</div>';
+                }
+                
+                // 使用建议
+                html += '<div class="diagnostics-section"><h4>使用建议</h4><ul>';
+                html += '<li>确保使用 HTTPS 或 localhost 访问</li>';
+                html += '<li>Android用户建议使用Chrome浏览器</li>';
+                html += '<li>iOS用户建议使用Safari 16.4+</li>';
+                html += '<li>备用模式支持所有设备，无需WebXR</li>';
+                html += '</ul></div>';
+                
+                diagnosticsContent.innerHTML = html;
+            }
+        }
+    }
+    
+    async startWebXR() {
+        Utils.showToast('正在启动WebXR AR...');
+        
+        // 如果备用模式正在运行，先停止它
+        if (this.arCore.isFallbackMode) {
+            await this.arCore.stopFallbackMode();
+        }
+        
+        const success = await this.arCore.startWebXR();
+        
+        if (success) {
+            this.hideAllPanels();
+            Utils.showToast('WebXR AR已启动，请点击屏幕放置锚点');
+        }
+    }
+    
+    placeAnchor() {
+        if (this.arCore.isFallbackMode) {
+            // 备用模式下，点击屏幕放置锚点
+            Utils.showToast('请点击屏幕任意位置放置锚点');
+            return;
+        }
+        
+        if (!this.arCore.isXRActive) {
+            Utils.showToast('请先启动WebXR AR或备用模式');
+            return;
+        }
+        
+        this.arCore.placeAnchorByClick(0.5, 0.5);
+    }
+    
+    clearAnchor() {
+        this.arCore.clearAnchors();
+        Utils.showToast('锚点已清除');
+    }
+    
+    togglePlaneVisibility() {
+        this.planeVisibility = !this.planeVisibility;
+        
+        this.arCore.planeVisualizers.forEach(v => {
+            v.visible = this.planeVisibility;
+        });
+        
+        const btn = document.getElementById('toggle-planes-btn');
+        if (btn) {
+            btn.textContent = this.planeVisibility ? '隐藏平面' : '显示平面';
+        }
+        
+        Utils.showToast(this.planeVisibility ? '平面已显示' : '平面已隐藏');
+    }
+    
+    updateAnchorControls(status) {
+        const placeBtn = document.getElementById('place-anchor-btn');
+        const clearBtn = document.getElementById('clear-anchor-btn');
+        
+        if (status === 'anchored' || status === 'fallback_anchored') {
+            if (placeBtn) placeBtn.disabled = true;
+            if (clearBtn) clearBtn.disabled = false;
+        } else if (status === 'ready' || status === 'fallback_ready') {
+            if (placeBtn) placeBtn.disabled = false;
+            if (clearBtn) clearBtn.disabled = true;
+        } else {
+            if (placeBtn) placeBtn.disabled = true;
+            if (clearBtn) clearBtn.disabled = true;
+        }
+    }
+    
+    hideDiagnostics() {
+        const diagnosticsPanel = document.getElementById('diagnostics-panel');
+        if (diagnosticsPanel) {
+            diagnosticsPanel.classList.add('hidden');
         }
     }
 }

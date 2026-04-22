@@ -127,10 +127,11 @@ class PipelineLoader {
 
         const curvePoints = points.map(point => {
             let x, y, z;
-            
+
             if (originLat === 0 && originLng === 0) {
                 x = point.lng * 10000;
                 z = point.lat * 10000;
+                // 确保管线底部与地面平齐，埋深部分在地面以下
                 y = -targetDepth;
             } else {
                 const localCoords = Utils.wgs84ToLocal(
@@ -141,10 +142,12 @@ class PipelineLoader {
                     targetDepth
                 );
                 x = localCoords.x;
+                // 使用 Utils.wgs84ToLocal 已经返回了 -alt，
+                // 所以管线会被埋在地面以下
                 y = localCoords.y;
                 z = localCoords.z;
             }
-            
+
             return new THREE.Vector3(x, y, z);
         });
 

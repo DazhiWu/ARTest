@@ -41,14 +41,16 @@
             
             <div id="ui-overlay">
                 <div id="top-bar">
-                    <div class="status-info">
-                        <span id="gps-status" class="status-badge">GPS: 等待中</span>
-                        <span id="compass-status" class="status-badge">罗盘: 等待中</span>
-                    </div>
-                    <div class="performance-info">
-                        <span id="fps-display">FPS: --</span>
-                    </div>
-                </div>
+            <div class="status-info">
+                <span id="gps-status" class="status-badge">GPS: 等待中</span>
+                <span id="compass-status" class="status-badge">罗盘: 等待中</span>
+                <span id="anchor-status" class="status-badge">锚点: 未连接</span>
+                <span id="ground-detection-status" class="status-badge">地面: 未检测</span>
+            </div>
+            <div class="performance-info">
+                <span id="fps-display">FPS: --</span>
+            </div>
+        </div>
 
                 <div id="location-display" class="location-panel">
                     <div class="location-title">当前位置</div>
@@ -137,6 +139,14 @@
                                 <button class="preset-btn" data-preset="side">侧视视角</button>
                             </div>
                         </div>
+                        <button id="start-ground-detection-btn" class="tool-btn primary-btn">🚀 智能地面检测</button>
+                        <button id="start-webxr-btn" class="tool-btn">启动 WebXR AR</button>
+                        <button id="start-fallback-btn" class="tool-btn">手动地面校准</button>
+                        <button id="place-anchor-btn" class="tool-btn" disabled>放置锚点</button>
+                        <button id="clear-anchor-btn" class="tool-btn" disabled>清除锚点</button>
+                        <button id="toggle-planes-btn" class="tool-btn" style="display:none;">隐藏平面</button>
+                        <button id="diagnostics-btn" class="tool-btn">设备诊断</button>
+                        <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.2); margin: 10px 0;">
                         <button id="calibration-btn" class="tool-btn">位置校准</button>
                         <button id="manual-location-btn" class="tool-btn">手动定位</button>
                         <button id="measure-btn" class="tool-btn">距离测量</button>
@@ -257,6 +267,16 @@
                             <button id="cancel-location-btn" class="tool-btn">取消</button>
                             <button id="reset-location-btn" class="tool-btn">重置为自动定位</button>
                         </div>
+                    </div>
+                </div>
+                
+                <div id="diagnostics-panel" class="hidden">
+                    <div class="diagnostics-header">
+                        <h3>设备诊断信息</h3>
+                        <button class="close-panel">&times;</button>
+                    </div>
+                    <div id="diagnostics-content" class="diagnostics-content">
+                        <!-- 诊断信息将在这里动态生成 -->
                     </div>
                 </div>
             </div>
